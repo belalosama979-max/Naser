@@ -69,117 +69,212 @@
   --mtn-stroke: #5a4010;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   LIGHT THEME — Warm Parchment & Daylight
+   Premium, readable, historically-inspired color system.
+   ═══════════════════════════════════════════════════════════════ */
 body.light-theme {
-  --bg-primary: #f8f9fa;
+  /* ── Base Backgrounds ── */
+  --bg-primary:   #faf7f0;   /* warm parchment cream */
   --bg-secondary: #ffffff;
-  --bg-tertiary: #f1f3f5;
-  --bg-accent: #e9ecef;
+  --bg-tertiary:  #f3ede0;   /* light parchment */
+  --bg-accent:    #ede4d0;   /* medium parchment */
 
-  --text-primary: #111827;
-  --text-secondary: #4b5563;
-  --text-muted: #6b7280;
+  /* ── Typography ── */
+  --text-primary:   #1a1208;  /* near-black warm */
+  --text-secondary: #4a3a20;  /* warm dark brown */
+  --text-muted:     #7a6545;  /* mid brown */
 
-  --primary: #0ca678;
-  --primary-hover: #099268;
-  --primary-light: rgba(12, 166, 120, 0.15);
+  /* ── Brand / Accents ── */
+  --primary:       #0d8a6e;
+  --primary-hover: #0a7058;
+  --primary-light: rgba(13, 138, 110, 0.12);
 
-  --gold: #d97706;
-  --gold-hover: #b45309;
-  --gold-light: rgba(217, 119, 6, 0.15);
-  --text-gold: #b45309;
+  --gold:       #c47a00;
+  --gold-hover: #a36200;
+  --gold-light: rgba(196, 122, 0, 0.12);
+  --text-gold:  #8a5500;   /* dark amber — readable on light */
 
-  --border-color: #e5e7eb;
+  --danger:       #c0392b;
+  --danger-hover: #a93226;
+  --danger-light: rgba(192, 57, 43, 0.1);
 
-  --landing-bg: radial-gradient(ellipse at 50% 30%, #ffffff 0%, #f8f9fa 60%, #e5e7eb 100%);
-  --admin-bg: radial-gradient(ellipse at 50% 0%, #ffffff 0%, #f3f4f6 60%, #e5e7eb 100%);
-  --header-bg: rgba(255, 255, 255, 0.95);
-  --footer-bg: rgba(249, 250, 251, 0.95);
-  --nav-bg: rgba(255, 255, 255, 0.90);
-  --border-gold-alpha: rgba(217, 119, 6, 0.25);
+  --success:       #1a7a4a;
+  --success-hover: #146038;
+  --success-light: rgba(26, 122, 74, 0.1);
 
-  --parchment-stop0: #fffcf2;
-  --parchment-stop45: #f4ecdd;
-  --parchment-stop100: #e2d2b6;
-  --sea-stop0: #a5d8ff;
-  --sea-stop100: #339af0;
-  --mtn-fill: #bda277;
-  --mtn-stroke: #8d7042;
+  --blue:   #1e5fa0;
+  --purple: #6b3fa0;
+  --cyan:   #0e7490;
+
+  --border-color:      #d4c5a0;
+  --border-gold-alpha: rgba(196, 122, 0, 0.3);
+
+  /* ── Page Backgrounds ── */
+  --landing-bg: radial-gradient(ellipse at 50% 0%, #fffdf5 0%, #faf7ed 50%, #f0e8d5 100%);
+  --admin-bg:   radial-gradient(ellipse at 50% 0%, #ffffff 0%, #f8f4ec 60%, #ede6d2 100%);
+
+  /* ── UI Surfaces ── */
+  --header-bg: rgba(255, 252, 242, 0.97);
+  --footer-bg: rgba(250, 247, 240, 0.97);
+  --nav-bg:    rgba(255, 252, 242, 0.95);
+
+  /* ── Map Parchment Colors ── */
+  --parchment-stop0:   #f5ead0;
+  --parchment-stop45:  #ead9b8;
+  --parchment-stop100: #d4c090;
+  --sea-stop0:   #9ecfee;
+  --sea-stop100: #5aabdf;
+  --mtn-fill:    #c8a96a;
+  --mtn-stroke:  #8a7040;
 }
 
-/* Force override inline hardcoded colors for light mode to ensure readability */
-body.light-theme * {
-  --inline-bg-dark: rgba(255, 255, 255, 0.95) !important;
-  --inline-bg-dark-hover: rgba(255, 255, 255, 1) !important;
+/* ── Glass / Panel override ── */
+body.light-theme .glass-panel {
+  background: rgba(255, 252, 242, 0.92);
+  border: 1px solid rgba(196, 122, 0, 0.15);
+  box-shadow: 0 4px 20px rgba(100, 70, 20, 0.08);
 }
 
-body.light-theme [style*="color: rgb(240, 208, 96)"],
-body.light-theme [style*="color: #f0d060"] {
-  color: var(--text-gold) !important;
+/* ── Card override ── */
+body.light-theme .card-historical {
+  background: rgba(255, 252, 242, 0.97);
+  border: 1px solid rgba(196, 122, 0, 0.25);
+  box-shadow: 0 4px 20px rgba(100, 70, 20, 0.1), 0 1px 4px rgba(0,0,0,0.05);
+  color: var(--text-primary);
 }
 
-body.light-theme [style*="color: rgb(212, 175, 55)"],
-body.light-theme [style*="color: #d4af37"] {
-  color: var(--text-gold) !important;
+body.light-theme .card-historical:hover {
+  border-color: rgba(196, 122, 0, 0.45);
+  box-shadow: 0 8px 30px rgba(100, 70, 20, 0.15);
 }
 
-body.light-theme [style*="color: rgb(106, 90, 64)"],
-body.light-theme [style*="color: #6a5a40"] {
-  color: var(--text-secondary) !important;
+/* ── Inputs ── */
+body.light-theme .input-historical,
+body.light-theme .select-historical {
+  background-color: #ffffff;
+  border: 1.5px solid rgba(180, 140, 60, 0.4);
+  color: var(--text-primary);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
 }
 
-body.light-theme [style*="color: rgb(200, 184, 144)"],
-body.light-theme [style*="color: #c8b890"] {
-  color: var(--text-muted) !important;
+body.light-theme .input-historical:focus,
+body.light-theme .select-historical:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(196, 122, 0, 0.18), inset 0 1px 3px rgba(0,0,0,0.04);
+  background-color: #fffdf8;
 }
 
-body.light-theme [style*="background: rgba(0, 0, 0, 0.3)"] {
-  background: rgba(0, 0, 0, 0.05) !important;
+/* ── Buttons override ── */
+body.light-theme .btn-secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+body.light-theme .btn-secondary:hover {
+  background: var(--bg-accent);
+  color: var(--text-primary);
 }
 
-body.light-theme [style*="background: rgba(10, 8, 3, 0.6)"] {
-  background: rgba(255, 255, 255, 0.8) !important;
+/* ── Student portal ── */
+body.light-theme .student-portal-bg {
+  background: radial-gradient(ellipse at 50% 0%, #fffcf0 0%, #faf5e0 50%, #f0e5c8 100%);
 }
 
-body.light-theme [style*="background: rgba(10, 8, 3, 0.5)"] {
-  background: rgba(255, 255, 255, 0.6) !important;
+body.light-theme .student-card {
+  background: rgba(255, 252, 240, 0.97);
+  border: 1px solid rgba(196, 122, 0, 0.25);
+  box-shadow: 0 4px 16px rgba(100,70,20,0.1);
+}
+body.light-theme .student-card:hover {
+  border-color: rgba(196, 122, 0, 0.5);
+  box-shadow: 0 8px 24px rgba(100,70,20,0.15);
 }
 
-body.light-theme [style*="background: rgba(0, 0, 0, 0.2)"],
-body.light-theme [style*="background: 'rgba(0,0,0,0.2)'"] {
-  background: rgba(0, 0, 0, 0.03) !important;
+/* ── Game overlay panel ── */
+body.light-theme .game-overlay-panel {
+  background: rgba(255, 252, 242, 0.98) !important;
+  border-right: 1px solid rgba(196,122,0,0.2);
 }
 
-body.light-theme [style*="background: rgba(10, 7, 2, 0.8)"],
-body.light-theme [style*="background: 'rgba(10,7,2,0.8)'"] {
-  background: rgba(255, 255, 255, 0.9) !important;
+/* ── Scrollbar ── */
+body.light-theme ::-webkit-scrollbar-track  { background: #f3ede0; }
+body.light-theme ::-webkit-scrollbar-thumb  { background: #c8b080; border-radius: 999px; }
+body.light-theme ::-webkit-scrollbar-thumb:hover { background: #a07840; }
+
+/* ─────────────────────────────────────────────────────────────
+   INLINE STYLE OVERRIDES — fix all hardcoded dark colors
+   ─────────────────────────────────────────────────────────────
+   These selectors patch inline styles that cannot be addressed
+   through CSS variables alone.
+   ───────────────────────────────────────────────────────────── */
+
+/* Dark backgrounds → white / parchment */
+body.light-theme [style*="background: rgba(10,8,3"],
+body.light-theme [style*="background: rgba(10, 8, 3"],
+body.light-theme [style*="background: rgba(8,6,2"],
+body.light-theme [style*="background: rgba(8, 6, 2"],
+body.light-theme [style*="background: rgba(6,4,1"],
+body.light-theme [style*="background: rgba(6, 4, 1"],
+body.light-theme [style*="background: rgba(4,3,1"],
+body.light-theme [style*="background: rgba(4, 3, 1"] {
+  background: rgba(255, 252, 242, 0.97) !important;
 }
 
 body.light-theme [style*="background: #1a1208"],
-body.light-theme [style*="background: rgb(26, 18, 8)"] {
-  background: var(--bg-tertiary) !important;
-}
-
 body.light-theme [style*="background: #0a0602"],
-body.light-theme [style*="background: rgb(10, 6, 2)"] {
-  background: var(--bg-secondary) !important;
+body.light-theme [style*="background: #0d0a02"] {
+  background: #f3ede0 !important;
 }
 
-body.light-theme .glass-panel {
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+body.light-theme [style*="background: rgba(0,0,0,0.3)"],
+body.light-theme [style*="background: rgba(0, 0, 0, 0.3)"] {
+  background: rgba(100,70,20,0.06) !important;
 }
 
-body.light-theme ::-webkit-scrollbar-track {
-  background: #fbf9f4;
+body.light-theme [style*="background: rgba(0,0,0,0.5)"],
+body.light-theme [style*="background: rgba(0, 0, 0, 0.5)"] {
+  background: rgba(100,70,20,0.1) !important;
 }
 
-body.light-theme ::-webkit-scrollbar-thumb {
-  background: #dfd2bf;
+/* Gold text on dark bg → dark amber for readability */
+body.light-theme [style*="color: #f0d060"],
+body.light-theme [style*="color: rgb(240, 208, 96)"],
+body.light-theme [style*="color: #d4af37"],
+body.light-theme [style*="color: rgb(212, 175, 55)"],
+body.light-theme [style*="color: #f5d060"],
+body.light-theme [style*="color: rgb(245, 208, 96)"] {
+  color: var(--text-gold) !important;
 }
 
-body.light-theme ::-webkit-scrollbar-thumb:hover {
-  background: #8d7b63;
+/* Muted gold text */
+body.light-theme [style*="color: #c8b890"],
+body.light-theme [style*="color: rgb(200, 184, 144)"],
+body.light-theme [style*="color: #c8b080"],
+body.light-theme [style*="color: #b8a878"] {
+  color: var(--text-muted) !important;
+}
+
+/* Very muted dark labels → secondary text */
+body.light-theme [style*="color: #7a6a50"],
+body.light-theme [style*="color: #6a5a40"],
+body.light-theme [style*="color: #5a4a30"],
+body.light-theme [style*="color: #4a3a20"],
+body.light-theme [style*="color: #3a2a10"] {
+  color: var(--text-secondary) !important;
+}
+
+/* Pure muted grays */
+body.light-theme [style*="color: #8a7a60"],
+body.light-theme [style*="color: #8a7050"],
+body.light-theme [style*="color: #6a6050"] {
+  color: var(--text-muted) !important;
+}
+
+/* Borders gold alpha → daylight gold */
+body.light-theme [style*="border: 1px solid rgba(212,175,55"],
+body.light-theme [style*="borderColor: rgba(212,175,55"] {
+  border-color: rgba(196,122,0,0.35) !important;
 }
 
 /* البطاقات التاريخية المميزة */

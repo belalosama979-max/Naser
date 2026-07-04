@@ -112,18 +112,23 @@ export default function MapNode({ node, pathColor, pathColorBright, index, requi
         {isActive && (() => {
           const TW = 160;
           const TH = 82;
-          // Clamp x so tooltip stays inside 0..1400
-          const tx = Math.min(Math.max(x - TW / 2, 8), 1400 - TW - 8);
-          const ty = y - 26 - TH;
+          const MARGIN = 8;
+          // Clamp X so tooltip stays inside 0..1400
+          const tx = Math.min(Math.max(x - TW / 2, MARGIN), 1400 - TW - MARGIN);
+          // Determine Y: prefer above, but fall below if near top
+          const spaceAbove = y - 26;
+          const showBelow = spaceAbove < TH + MARGIN;
+          const ty = showBelow ? y + 24 : y - 26 - TH;
+          const arrowAbove = !showBelow
+            ? <polygon points={`${x - 6},${ty + TH} ${x + 6},${ty + TH} ${x},${ty + TH + 10}`} fill={pathColor} opacity="0.8" />
+            : <polygon points={`${x - 6},${ty} ${x + 6},${ty} ${x},${ty - 10}`} fill={pathColor} opacity="0.8" />;
+
           return (
             <g>
               <rect x={tx} y={ty} width={TW} height={TH} rx="6"
                 fill="rgba(10,8,3,0.96)" stroke={pathColor} strokeWidth="1" />
               {/* Arrow */}
-              <polygon
-                points={`${x - 6},${ty + TH} ${x + 6},${ty + TH} ${x},${ty + TH + 10}`}
-                fill={pathColor} opacity="0.8"
-              />
+              {arrowAbove}
               <text x={tx + TW / 2} y={ty + 18} textAnchor="middle" fontSize="10"
                 fontFamily="Reem Kufi, serif" fill={pathColorBright} fontWeight="700">
                 {name}
@@ -205,24 +210,28 @@ export default function MapNode({ node, pathColor, pathColorBright, index, requi
 
       {/* Hover tooltip (minimal) — smart clamp */}
       {isActive && (() => {
-        const TW = 120;
-        const TH = pointsLabel ? 36 : 22;
-        const tx = Math.min(Math.max(x - TW / 2, 8), 1400 - TW - 8);
-        const ty = y - 18 - TH;
+        const TW = 130;
+        const TH = pointsLabel ? 42 : 26;
+        const MARGIN = 8;
+        const tx = Math.min(Math.max(x - TW / 2, MARGIN), 1400 - TW - MARGIN);
+        // Prefer above; fall below if near top
+        const spaceAbove = y - 18;
+        const showBelow = spaceAbove < TH + MARGIN;
+        const ty = showBelow ? y + 14 : y - 18 - TH;
+        const arrowElem = showBelow
+          ? <polygon points={`${x - 4},${ty} ${x + 4},${ty} ${x},${ty - 7}`} fill={pathColor} opacity="0.7" />
+          : <polygon points={`${x - 4},${ty + TH} ${x + 4},${ty + TH} ${x},${ty + TH + 7}`} fill={pathColor} opacity="0.7" />;
         return (
           <g>
             <rect x={tx} y={ty} width={TW} height={TH} rx="4"
               fill="rgba(10,8,3,0.95)" stroke={pathColor} strokeWidth="0.8" />
-            <polygon
-              points={`${x - 4},${ty + TH} ${x + 4},${ty + TH} ${x},${ty + TH + 7}`}
-              fill={pathColor} opacity="0.7"
-            />
+            {arrowElem}
             <text x={tx + TW / 2} y={ty + 14} textAnchor="middle" fontSize="9"
               fontFamily="Cairo, sans-serif" fill="#c0a870" fontWeight="600">
               {name}
             </text>
             {pointsLabel && (
-              <text x={tx + TW / 2} y={ty + 28} textAnchor="middle" fontSize="8"
+              <text x={tx + TW / 2} y={ty + 30} textAnchor="middle" fontSize="8"
                 fontFamily="Cairo, sans-serif" fill="#d4af37" fontWeight="600">
                 🎯 {pointsLabel} نقطة
               </text>

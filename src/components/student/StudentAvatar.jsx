@@ -3,6 +3,10 @@
  * Renders a student's photo avatar on the SVG map.
  * Implements cluster layout for students at similar progress positions.
  * Shows a rich tooltip on hover.
+ *
+ * Z-INDEX NOTE: SVG doesn't support CSS z-index on <g> elements.
+ * The MapCanvas handles hover elevation by re-rendering the hovered
+ * avatar last in the SVG (via hoveredStudentId state).
  */
 
 import React, { useMemo, useState, useCallback } from 'react';
@@ -14,24 +18,34 @@ import { getPathColor } from '../../utils/pathsData';
 const AVATAR_SIZE = 36;
 const AVATAR_RADIUS = AVATAR_SIZE / 2;
 
-export default function StudentAvatar({ student, allStudents, isDragging }) {
-  const [showTooltip, setShowTooltip] = useState(false);
+// SVG viewBox bounds for clamping
+const SVG_W = 1400;
+const SVG_H = 900;
+
+export default function StudentAvatar({ student, allStudents, isDragging, onHoverChange, forceHover }) {
+  const [localHover, setLocalHover] = useState(false);
+  const showTooltip = forceHover || localHover;
 
   // Compute position with cluster offset
   const { x, y } = useMemo(
     () => getStudentMapPosition(student, allStudents),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [student.id, student.progress, student.pathId, allStudents]
   );
 
   const pathColor = getPathColor(student.pathId);
 
   const handleMouseEnter = useCallback(() => {
-    if (!isDragging) setShowTooltip(true);
-  }, [isDragging]);
+    if (!isDragging) {
+      setLocalHover(true);
+      onHoverChange?.(student.id);
+    }
+  }, [isDragging, onHoverChange, student.id]);
 
   const handleMouseLeave = useCallback(() => {
-    setShowTooltip(false);
-  }, []);
+    setLocalHover(false);
+    onHoverChange?.(null);
+  }, [onHoverChange]);
 
   // Rank change direction
   const rankChange = student.previousRank - student.currentRank;
@@ -58,6 +72,18 @@ export default function StudentAvatar({ student, allStudents, isDragging }) {
           strokeWidth="2"
           animate={{ r: [AVATAR_RADIUS + 6, AVATAR_RADIUS + 14], opacity: [0.8, 0] }}
           transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut' }}
+        />
+      )}
+
+      {/* Hover elevation ring — visible only on hover */}
+      {showTooltip && (
+        <circle
+          r={AVATAR_RADIUS + 10}
+          fill="none"
+          stroke={student.hasJerusalemBadge ? '#d4af37' : pathColor.primary}
+          strokeWidth="1.5"
+          opacity="0.35"
+          style={{ transition: 'all 0.2s ease' }}
         />
       )}
 
@@ -167,14 +193,41 @@ export default function StudentAvatar({ student, allStudents, isDragging }) {
 
 // ─── Tooltip ────────────────────────────────────────────────────
 function TooltipContent({ student, pathColor, rankChange, avatarRadius, svgX, svgY }) {
-  const TW = 180; // tooltip width
-  const TH = 104; // tooltip height
-  // Clamp so tooltip stays inside SVG viewBox (0..1400 x 0..900)
-  // svgX/svgY are the absolute SVG coords of the avatar center
-  const clampedAbsX = Math.min(Math.max(svgX - TW / 2, 8), 1400 - TW - 8);
+  const TW = 190; // tooltip width
+  const TH = 110; // tooltip height
+  const MARGIN = 10;
+
+  // Determine if tooltip should appear above or below
+  // If not enough space above, show below
+  const spaceAbove = svgY - avatarRadius - 16;
+  const showBelow = spaceAbove < TH + MARGIN;
+
+  // Clamp X so tooltip stays inside SVG viewBox (0..1400)
+  const clampedAbsX = Math.min(
+    Math.max(svgX - TW / 2, MARGIN),
+    SVG_W - TW - MARGIN
+  );
   // TX relative to motion.g center (which is at svgX, svgY)
   const TX = clampedAbsX - svgX;
-  const TY = -(avatarRadius + TH + 16);
+
+  let TY, arrowPoints;
+  if (showBelow) {
+    // Show tooltip below the avatar
+    TY = avatarRadius + 16;
+    arrowPoints = `${-8},${TY} ${8},${TY} 0,${avatarRadius + 8}`;
+  } else {
+    // Show tooltip above the avatar
+    TY = -(avatarRadius + TH + 16);
+    arrowPoints = `${-8},${TY + TH} ${8},${TY + TH} 0,${-(avatarRadius + 8)}`;
+  }
+
+  // Row positions inside tooltip
+  const row1Y = TY + 22;  // Name
+  const divY  = TY + 31;  // Divider
+  const row2Y = TY + 50;  // Points
+  const row3Y = TY + 68;  // Progress
+  const row4Y = TY + 86;  // Rank
+  const badgeY = TY + 95; // Badge
 
   return (
     <g className="tooltip-container">
@@ -196,20 +249,20 @@ function TooltipContent({ student, pathColor, rankChange, avatarRadius, svgX, sv
         opacity="0.7"
       />
 
-      {/* Arrow pointer — always centered on avatar */}
+      {/* Arrow pointer — centered on avatar */}
       <polygon
-        points={`${-8},${TY + TH} ${8},${TY + TH} 0,${-(avatarRadius + 8)}`}
+        points={arrowPoints}
         fill="rgba(8,6,2,0.97)"
         stroke={pathColor.primary}
         strokeWidth="1"
       />
       <polygon
-        points={`${-7},${TY + TH - 1} ${7},${TY + TH - 1} 0,${-(avatarRadius + 8)}`}
+        points={arrowPoints}
         fill="rgba(8,6,2,0.97)"
       />
 
       {/* Student name — centered */}
-      <text x={TX + TW / 2} y={TY + 22}
+      <text x={TX + TW / 2} y={row1Y}
         textAnchor="middle" fontSize="13"
         fontFamily="Reem Kufi, serif"
         fill="#f0d060" fontWeight="700">
@@ -217,29 +270,31 @@ function TooltipContent({ student, pathColor, rankChange, avatarRadius, svgX, sv
       </text>
 
       {/* Divider */}
-      <line x1={TX + 12} y1={TY + 30} x2={TX + TW - 12} y2={TY + 30}
+      <line x1={TX + 12} y1={divY} x2={TX + TW - 12} y2={divY}
         stroke={`${pathColor.primary}50`} strokeWidth="0.8" />
 
-      {/* Points row: label right, value left (RTL layout) */}
-      <text x={TX + TW - 12} y={TY + 48} textAnchor="end" fontSize="9"
-        fontFamily="Cairo, sans-serif" fill="#7a6a50">:النقاط</text>
-      <text x={TX + 12} y={TY + 48} textAnchor="start" fontSize="11"
+      {/* ── RTL layout: Label on right (textAnchor=end), value on left (textAnchor=start) ── */}
+
+      {/* Points row */}
+      <text x={TX + TW - 12} y={row2Y} textAnchor="end" fontSize="9"
+        fontFamily="Cairo, sans-serif" fill="#7a6a50">النقاط:</text>
+      <text x={TX + 12} y={row2Y} textAnchor="start" fontSize="11"
         fontFamily="Cairo, sans-serif" fill={pathColor.bright} fontWeight="700">
-        {student.points.toLocaleString('ar')}
+        {student.points.toLocaleString('ar-SA')}
       </text>
 
       {/* Progress row */}
-      <text x={TX + TW - 12} y={TY + 65} textAnchor="end" fontSize="9"
-        fontFamily="Cairo, sans-serif" fill="#7a6a50">:الإنجاز</text>
-      <text x={TX + 12} y={TY + 65} textAnchor="start" fontSize="11"
+      <text x={TX + TW - 12} y={row3Y} textAnchor="end" fontSize="9"
+        fontFamily="Cairo, sans-serif" fill="#7a6a50">الإنجاز:</text>
+      <text x={TX + 12} y={row3Y} textAnchor="start" fontSize="11"
         fontFamily="Cairo, sans-serif" fill={pathColor.bright} fontWeight="700">
-        {student.progress.toFixed(2)}%
+        {student.progress.toFixed(1)}%
       </text>
 
       {/* Rank row */}
-      <text x={TX + TW - 12} y={TY + 82} textAnchor="end" fontSize="9"
-        fontFamily="Cairo, sans-serif" fill="#7a6a50">:الترتيب</text>
-      <text x={TX + 12} y={TY + 82} textAnchor="start" fontSize="11"
+      <text x={TX + TW - 12} y={row4Y} textAnchor="end" fontSize="9"
+        fontFamily="Cairo, sans-serif" fill="#7a6a50">الترتيب:</text>
+      <text x={TX + 12} y={row4Y} textAnchor="start" fontSize="11"
         fontFamily="Cairo, sans-serif" fill="#c8b890" fontWeight="600">
         #{student.currentRank}
         {rankChange > 0 && (
@@ -250,31 +305,32 @@ function TooltipContent({ student, pathColor, rankChange, avatarRadius, svgX, sv
         )}
       </text>
 
-      {/* Path badge — centered */}
-      <rect
-        x={TX + TW / 2 - 35} y={TY + 88}
-        width="70" height="13"
-        rx="6"
-        fill={`${pathColor.primary}30`}
-        stroke={pathColor.primary}
-        strokeWidth="0.6"
-      />
-      <text x={TX + TW / 2} y={TY + 97}
-        textAnchor="middle" fontSize="7.5"
-        fontFamily="Cairo, sans-serif"
-        fill={pathColor.bright}>
-        {student.pathId === 'path1' ? 'المسار العراقي' : 'المسار الشامي'}
-      </text>
-
-      {/* Jerusalem badge */}
-      {student.hasJerusalemBadge && (
+      {/* Path / Jerusalem badge row */}
+      {student.hasJerusalemBadge ? (
         <g>
-          <rect x={TX + 8} y={TY + 87} width="55" height="13"
+          <rect x={TX + TW / 2 - 40} y={badgeY - 2} width="80" height="13"
             rx="6" fill="rgba(212,175,55,0.2)" stroke="#d4af37" strokeWidth="0.8" />
-          <text x={TX + 35} y={TY + 96}
+          <text x={TX + TW / 2} y={badgeY + 7}
             textAnchor="middle" fontSize="7.5"
             fontFamily="Cairo, sans-serif" fill="#d4af37" fontWeight="700">
             ★ فاتح القدس
+          </text>
+        </g>
+      ) : (
+        <g>
+          <rect
+            x={TX + TW / 2 - 35} y={badgeY - 2}
+            width="70" height="13"
+            rx="6"
+            fill={`${pathColor.primary}30`}
+            stroke={pathColor.primary}
+            strokeWidth="0.6"
+          />
+          <text x={TX + TW / 2} y={badgeY + 7}
+            textAnchor="middle" fontSize="7.5"
+            fontFamily="Cairo, sans-serif"
+            fill={pathColor.bright}>
+            {student.pathId === 'path1' ? 'المسار العراقي' : 'المسار الشامي'}
           </text>
         </g>
       )}

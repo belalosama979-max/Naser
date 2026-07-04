@@ -313,10 +313,16 @@ export default function MapCanvas() {
   const dragStart = useRef(null);
   const isDraggingRef = useRef(false);
   const [hoveredNodeId, setHoveredNodeId] = useState(null);
+  const [hoveredStudentId, setHoveredStudentId] = useState(null);
 
   // Stable callback — does not cause full re-render of all nodes
   const handleNodeHover = useCallback((id) => {
     setHoveredNodeId(id);
+  }, []);
+
+  // Stable callback for student avatar hover (elevation via re-render at end)
+  const handleStudentHover = useCallback((id) => {
+    setHoveredStudentId(id);
   }, []);
 
   const applyTransform = useCallback((smooth = false) => {
@@ -495,17 +501,21 @@ export default function MapCanvas() {
           {/* Layer 7: Jerusalem (always on top of nodes) */}
           <JerusalemMarker x={700} y={820} />
 
-          {/* Layer 8: Student avatars */}
-          {students.map((student) => (
-            <StudentAvatar
-              key={student.id}
-              student={student}
-              allStudents={students}
-              isDragging={isDragging}
-            />
-          ))}
+          {/* Layer 8: Student avatars — non-hovered ones first */}
+          {students
+            .filter(s => s.id !== hoveredStudentId)
+            .map((student) => (
+              <StudentAvatar
+                key={student.id}
+                student={student}
+                allStudents={students}
+                isDragging={isDragging}
+                onHoverChange={handleStudentHover}
+              />
+            ))
+          }
 
-          {/* Layer 9 (TOP): Re-render hovered node last so tooltip is above everything */}
+          {/* Layer 9a (TOP): Re-render hovered node last so tooltip is above everything */}
           {hoveredNodeId && (() => {
             // Find the hovered node in either path
             const allPathNodes = [...pathsData.path1, ...pathsData.path2.filter(n => n.id !== 'dest')];
@@ -522,6 +532,22 @@ export default function MapCanvas() {
                 requiredPoints={nodePoints[hovNode.id]}
                 forceHover={true}
                 onHoverChange={handleNodeHover}
+              />
+            );
+          })()}
+
+          {/* Layer 9b (TOP): Re-render hovered student LAST for z-elevation */}
+          {hoveredStudentId && (() => {
+            const hovStudent = students.find(s => s.id === hoveredStudentId);
+            if (!hovStudent) return null;
+            return (
+              <StudentAvatar
+                key={`hov-student-${hoveredStudentId}`}
+                student={hovStudent}
+                allStudents={students}
+                isDragging={isDragging}
+                onHoverChange={handleStudentHover}
+                forceHover={true}
               />
             );
           })()}

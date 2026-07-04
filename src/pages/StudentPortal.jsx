@@ -80,16 +80,14 @@ function ProgressRing({ progress, size = 100, stroke = 8 }) {
   );
 }
 
-// ── Map Preview Modal ─────────────────────────────────────────────────────────
-function MapPreviewModal({ student, nodePoints, onClose }) {
+// -- Map Preview Modal (Full -- All Students) ---
+function MapPreviewModal({ student, nodePoints, allStudents, onClose }) {
   const [isLandscape, setIsLandscape] = useState(window.innerWidth > window.innerHeight);
   const currentNode = getCurrentNode(student, nodePoints);
-  const pathNodes = pathsData[student.pathId] || [];
 
   useEffect(() => {
     const handler = () => setIsLandscape(window.innerWidth > window.innerHeight);
     window.addEventListener('resize', handler);
-    // Try to request fullscreen and landscape
     const reqFullscreen = async () => {
       try {
         if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
@@ -106,8 +104,34 @@ function MapPreviewModal({ student, nodePoints, onClose }) {
     };
   }, []);
 
-  // Map SVG viewbox: 0 0 1400 900
   const VBW = 1400, VBH = 900;
+  const path1Nodes = pathsData.path1;
+  const path2Nodes = pathsData.path2;
+  const path1Points = path1Nodes.map(n => `${n.x},${n.y}`).join(' ');
+  const path2Points = path2Nodes.map(n => `${n.x},${n.y}`).join(' ');
+
+  const getStudentSVGPos = (s) => {
+    const nodes = pathsData[s.pathId] || [];
+    if (!nodes.length) return { x: 700, y: 820 };
+    if (s.progress <= nodes[0].progress) return { x: nodes[0].x, y: nodes[0].y };
+    if (s.progress >= nodes[nodes.length - 1].progress) {
+      const last = nodes[nodes.length - 1];
+      return { x: last.x, y: last.y };
+    }
+    let sn = nodes[0], en = nodes[1];
+    for (let i = 0; i < nodes.length - 1; i++) {
+      if (s.progress >= nodes[i].progress && s.progress <= nodes[i + 1].progress) {
+        sn = nodes[i]; en = nodes[i + 1]; break;
+      }
+    }
+    const segP = en.progress - sn.progress;
+    const curP = s.progress - sn.progress;
+    const ratio = segP === 0 ? 0 : curP / segP;
+    return { x: sn.x + (en.x - sn.x) * ratio, y: sn.y + (en.y - sn.y) * ratio };
+  };
+
+  const myPos = getStudentSVGPos(student);
+  const myRank = allStudents.findIndex(s => s.id === student.id) + 1;
 
   return (
     <motion.div
@@ -144,18 +168,23 @@ function MapPreviewModal({ student, nodePoints, onClose }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '16px' }}>🗺️</span>
             <span style={{ color: '#d4af37', fontFamily: 'Reem Kufi, serif', fontSize: '14px', fontWeight: '700' }}>
-              خريطة الرحلة
+              خريطة الرحلة الكاملة
             </span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <div style={{
-              background: student.pathId === 'path1' ? 'rgba(45,154,95,0.15)' : 'rgba(42,127,196,0.15)',
-              border: `1px solid ${student.pathId === 'path1' ? 'rgba(45,154,95,0.4)' : 'rgba(42,127,196,0.4)'}`,
-              borderRadius: '20px', padding: '3px 10px',
-              color: student.pathId === 'path1' ? '#2d9a5f' : '#2a7fc4',
-              fontSize: '11px', fontWeight: '700',
+              background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.3)',
+              borderRadius: '20px', padding: '3px 12px',
+              color: '#d4af37', fontSize: '11px', fontWeight: '700',
             }}>
-              {currentNode?.name || 'البداية'}
+              📍 {currentNode?.name || 'البداية'}
+            </div>
+            <div style={{
+              background: 'rgba(82,214,138,0.1)', border: '1px solid rgba(82,214,138,0.3)',
+              borderRadius: '20px', padding: '3px 12px',
+              color: '#52d68a', fontSize: '11px', fontWeight: '700',
+            }}>
+              {student.progress.toFixed(0)}%
             </div>
             <button
               onClick={onClose}
@@ -164,97 +193,162 @@ function MapPreviewModal({ student, nodePoints, onClose }) {
                 borderRadius: '8px', padding: '5px 10px',
                 color: '#ef4444', fontSize: '12px', cursor: 'pointer',
               }}
-            >✕</button>
+            >X</button>
           </div>
         </div>
 
-        {/* SVG Map */}
-        <div style={{ position: 'relative', overflow: 'auto', maxHeight: isLandscape ? '80vh' : '65vh' }}>
+        {/* Stats bar */}
+        <div style={{
+          display: 'flex', gap: '14px', padding: '8px 16px',
+          background: 'rgba(4,3,1,0.9)',
+          borderBottom: '1px solid rgba(212,175,55,0.08)',
+          flexWrap: 'wrap', alignItems: 'center',
+        }}>
+          <MapStatChip icon="🏅" label="ترتيبي" value={`#${myRank}`} color="#d4af37" />
+          <MapStatChip icon="🎯" label="نقاطي" value={student.points} color="#60b4f5" />
+          <MapStatChip icon="📊" label="الإنجاز" value={`${student.progress.toFixed(0)}%`} color="#52d68a" />
+          <MapStatChip icon="🏁" label="المتبقي" value={`${(100 - student.progress).toFixed(0)}%`} color="#f59e0b" />
+          <MapStatChip icon="👥" label="الطلاب" value={allStudents.length} color="#c8b890" />
+          {student.hasJerusalemBadge && <MapStatChip icon="★" label="فاتح القدس" value="نعم" color="#d4af37" />}
+        </div>
+
+        {/* SVG Full Map */}
+        <div style={{ position: 'relative', overflow: 'auto', maxHeight: isLandscape ? '70vh' : '58vh' }}>
           <svg
             viewBox={`0 0 ${VBW} ${VBH}`}
             style={{ width: '100%', display: 'block', background: 'linear-gradient(135deg, #1e1508 0%, #0f0b04 100%)' }}
           >
-            {/* Path line */}
-            {pathNodes.length > 1 && (
-              <polyline
-                points={pathNodes.map(n => `${n.x},${n.y}`).join(' ')}
-                fill="none"
-                stroke={student.pathId === 'path1' ? 'rgba(45,154,95,0.4)' : 'rgba(42,127,196,0.4)'}
-                strokeWidth="3"
-                strokeDasharray="8 4"
-              />
-            )}
+            {/* Both path lines */}
+            <polyline points={path1Points} fill="none"
+              stroke="rgba(45,154,95,0.4)" strokeWidth="3" strokeDasharray="8 4" />
+            <polyline points={path2Points} fill="none"
+              stroke="rgba(42,127,196,0.4)" strokeWidth="3" strokeDasharray="8 4" />
 
-            {/* Nodes */}
-            {pathNodes.map((node) => {
-              const required = nodePoints[node.id] ?? 0;
-              const isReached = student.points >= required;
-              const isCurrent = node.id === currentNode?.id;
+            {/* Path 1 nodes */}
+            {path1Nodes.map((node) => {
+              if (node.id === 'dest') return null;
               const isMain = node.type === 'main';
-              const pathColor = student.pathId === 'path1' ? '#2d9a5f' : '#2a7fc4';
-              const r = isMain ? (isCurrent ? 14 : 10) : (isCurrent ? 10 : 7);
-
               return (
                 <g key={node.id}>
-                  {/* Glow for current node */}
-                  {isCurrent && (
-                    <>
-                      <circle cx={node.x} cy={node.y} r={r + 12} fill="rgba(212,175,55,0.08)" />
-                      <circle cx={node.x} cy={node.y} r={r + 6} fill="rgba(212,175,55,0.15)" />
-                    </>
-                  )}
-                  <circle
-                    cx={node.x} cy={node.y} r={r}
-                    fill={isCurrent ? '#d4af37' : isReached ? pathColor : 'rgba(30,20,8,0.9)'}
-                    stroke={isCurrent ? '#f5d060' : isReached ? pathColor : 'rgba(100,80,40,0.4)'}
-                    strokeWidth={isCurrent ? 3 : 1.5}
-                    opacity={isReached ? 1 : 0.4}
-                  />
+                  <circle cx={node.x} cy={node.y} r={isMain ? 6 : 3.5}
+                    fill="rgba(45,154,95,0.18)" stroke="rgba(45,154,95,0.55)" strokeWidth="1" />
                   {isMain && (
-                    <text
-                      x={node.x} y={node.y - r - 5}
-                      textAnchor="middle"
-                      fontSize={isCurrent ? "13" : "10"}
-                      fontFamily="Reem Kufi, serif"
-                      fill={isCurrent ? '#f5d060' : isReached ? '#c8b890' : '#4a3a20'}
-                      fontWeight={isCurrent ? '700' : '400'}
-                    >
-                      {node.name}
-                    </text>
+                    <text x={node.x + 9} y={node.y + 4} fontSize="8"
+                      fontFamily="Reem Kufi, serif" fill="rgba(82,214,138,0.75)">{node.name}</text>
+                  )}
+                </g>
+              );
+            })}
+
+            {/* Path 2 nodes */}
+            {path2Nodes.map((node) => {
+              if (node.id === 'dest') return null;
+              const isMain = node.type === 'main';
+              return (
+                <g key={node.id}>
+                  <circle cx={node.x} cy={node.y} r={isMain ? 6 : 3.5}
+                    fill="rgba(42,127,196,0.18)" stroke="rgba(42,127,196,0.55)" strokeWidth="1" />
+                  {isMain && (
+                    <text x={node.x - 9} y={node.y + 4} fontSize="8"
+                      fontFamily="Reem Kufi, serif" fill="rgba(96,180,245,0.75)" textAnchor="end">{node.name}</text>
                   )}
                 </g>
               );
             })}
 
             {/* Jerusalem */}
-            <circle cx={700} cy={820} r={18} fill="rgba(212,175,55,0.15)" stroke="#d4af37" strokeWidth="2" />
-            <circle cx={700} cy={820} r={10} fill={student.hasJerusalemBadge ? '#d4af37' : 'rgba(50,35,10,0.9)'} />
-            <text x={700} y={795} textAnchor="middle" fontSize="14" fontFamily="Reem Kufi, serif" fill="#d4af37" fontWeight="700">
-              القدس 🕌
-            </text>
+            <circle cx={700} cy={820} r={20} fill="rgba(212,175,55,0.12)" stroke="#d4af37" strokeWidth="1.5" />
+            <circle cx={700} cy={820} r={11} fill={student.hasJerusalemBadge ? '#d4af37' : 'rgba(50,35,10,0.9)'} />
+            <text x={700} y={793} textAnchor="middle" fontSize="13"
+              fontFamily="Reem Kufi, serif" fill="#d4af37" fontWeight="700">القدس</text>
 
-            {/* Student marker (current node) */}
-            {currentNode && (
-              <g>
-                <circle cx={currentNode.x} cy={currentNode.y} r={22} fill="rgba(212,175,55,0.12)" />
-                <circle cx={currentNode.x} cy={currentNode.y} r={16} fill="rgba(212,175,55,0.2)" />
-                <text x={currentNode.x} y={currentNode.y + 5} textAnchor="middle" fontSize="14">
-                  {student.avatar ? '📍' : '⚔️'}
-                </text>
-                <text x={currentNode.x} y={currentNode.y + 26} textAnchor="middle" fontSize="10"
-                  fontFamily="Cairo, sans-serif" fill="#f5d060" fontWeight="700">
-                  أنت هنا
-                </text>
-              </g>
-            )}
+            {/* Other students - small dots */}
+            {allStudents
+              .filter(s => s.id !== student.id)
+              .map(s => {
+                const pos = getStudentSVGPos(s);
+                const col = s.hasJerusalemBadge ? '#d4af37' : (s.pathId === 'path1' ? '#2d9a5f' : '#2a7fc4');
+                return (
+                  <g key={s.id}>
+                    <circle cx={pos.x} cy={pos.y} r={5}
+                      fill={col} stroke="rgba(255,255,255,0.25)" strokeWidth="0.7" opacity="0.75" />
+                    <text x={pos.x} y={pos.y - 8} textAnchor="middle" fontSize="6.5"
+                      fontFamily="Cairo, sans-serif" fill="rgba(200,180,120,0.75)">
+                      {s.name.split(' ')[0].substring(0, 5)}
+                    </text>
+                  </g>
+                );
+              })
+            }
+
+            {/* MY position - animated golden halo */}
+            <g>
+              <motion.circle cx={myPos.x} cy={myPos.y} r={18}
+                fill="none" stroke="#d4af37" strokeWidth="1.5"
+                animate={{ r: [16, 28], opacity: [0.8, 0] }}
+                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut' }}
+              />
+              <motion.circle cx={myPos.x} cy={myPos.y} r={13}
+                fill="none" stroke="#f5d060" strokeWidth="1"
+                animate={{ r: [11, 21], opacity: [0.6, 0] }}
+                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut', delay: 0.5 }}
+              />
+              <circle cx={myPos.x} cy={myPos.y} r={10}
+                fill="rgba(212,175,55,0.3)" stroke="#d4af37" strokeWidth="2.5" />
+              <circle cx={myPos.x} cy={myPos.y} r={6} fill="#d4af37" />
+              <text x={myPos.x} y={myPos.y + 4} textAnchor="middle" fontSize="7"
+                fill="#0d0a02" fontWeight="900">انا</text>
+              <rect x={myPos.x - 30} y={myPos.y + 13} width="60" height="14" rx="4"
+                fill="rgba(212,175,55,0.2)" stroke="#d4af37" strokeWidth="0.8" />
+              <text x={myPos.x} y={myPos.y + 22} textAnchor="middle" fontSize="8"
+                fontFamily="Cairo, sans-serif" fill="#f5d060" fontWeight="700">
+                {student.name.split(' ')[0]} - انت هنا
+              </text>
+            </g>
           </svg>
         </div>
 
-        <p style={{ textAlign: 'center', color: '#3a2a10', fontSize: '10px', padding: '8px', fontFamily: 'Cairo, sans-serif' }}>
-          اضغط خارج الخريطة للإغلاق
-        </p>
+        {/* Legend */}
+        <div style={{
+          display: 'flex', gap: '12px', padding: '8px 16px',
+          background: 'rgba(4,3,1,0.9)',
+          borderTop: '1px solid rgba(212,175,55,0.08)',
+          flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <div style={{ width: '20px', height: '3px', background: '#2d9a5f', borderRadius: '2px' }} />
+              <span style={{ color: '#5a4a30', fontSize: '9px', fontFamily: 'Cairo, sans-serif' }}>المسار العراقي</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <div style={{ width: '20px', height: '3px', background: '#2a7fc4', borderRadius: '2px' }} />
+              <span style={{ color: '#5a4a30', fontSize: '9px', fontFamily: 'Cairo, sans-serif' }}>المسار الشامي</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#d4af37', border: '1.5px solid #d4af37' }} />
+              <span style={{ color: '#5a4a30', fontSize: '9px', fontFamily: 'Cairo, sans-serif' }}>انت</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'rgba(82,214,138,0.7)' }} />
+              <span style={{ color: '#5a4a30', fontSize: '9px', fontFamily: 'Cairo, sans-serif' }}>طلاب آخرون</span>
+            </div>
+          </div>
+          <p style={{ color: '#3a2a10', fontSize: '10px', fontFamily: 'Cairo, sans-serif' }}>
+            اضغط خارج الخريطة للإغلاق
+          </p>
+        </div>
       </motion.div>
     </motion.div>
+  );
+}
+
+function MapStatChip({ icon, label, value, color }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+      <span style={{ fontSize: '11px' }}>{icon}</span>
+      <span style={{ color: '#4a3a20', fontSize: '9px', fontFamily: 'Cairo, sans-serif' }}>{label}:</span>
+      <span style={{ color: color || '#d4af37', fontSize: '12px', fontWeight: '700', fontFamily: 'Reem Kufi, serif' }}>{value}</span>
+    </div>
   );
 }
 
@@ -713,12 +807,13 @@ export default function StudentPortal() {
 
       </div>
 
-      {/* ── Map Modal ────────────────────────────────────────── */}
+      {/* Map Modal */}
       <AnimatePresence>
         {showMap && (
           <MapPreviewModal
             student={student}
             nodePoints={nodePoints}
+            allStudents={allStudents}
             onClose={() => setShowMap(false)}
           />
         )}
