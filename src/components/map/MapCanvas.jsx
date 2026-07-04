@@ -312,6 +312,12 @@ export default function MapCanvas() {
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef(null);
   const isDraggingRef = useRef(false);
+  const [hoveredNodeId, setHoveredNodeId] = useState(null);
+
+  // Stable callback — does not cause full re-render of all nodes
+  const handleNodeHover = useCallback((id) => {
+    setHoveredNodeId(id);
+  }, []);
 
   const applyTransform = useCallback((smooth = false) => {
     if (panWrapperRef.current) {
@@ -468,6 +474,7 @@ export default function MapCanvas() {
                 pathColorBright="#52d68a"
                 index={idx + 1}
                 requiredPoints={nodePoints[node.id]}
+                onHoverChange={handleNodeHover}
               />
             );
           })}
@@ -481,6 +488,7 @@ export default function MapCanvas() {
               pathColorBright="#60b4f5"
               index={idx + 1}
               requiredPoints={nodePoints[node.id]}
+              onHoverChange={handleNodeHover}
             />
           ))}
 
@@ -496,6 +504,27 @@ export default function MapCanvas() {
               isDragging={isDragging}
             />
           ))}
+
+          {/* Layer 9 (TOP): Re-render hovered node last so tooltip is above everything */}
+          {hoveredNodeId && (() => {
+            // Find the hovered node in either path
+            const allPathNodes = [...pathsData.path1, ...pathsData.path2.filter(n => n.id !== 'dest')];
+            const hovNode = allPathNodes.find(n => n.id === hoveredNodeId);
+            if (!hovNode) return null;
+            const isPath1 = pathsData.path1.some(n => n.id === hoveredNodeId);
+            return (
+              <MapNode
+                key={`hov-${hoveredNodeId}`}
+                node={hovNode}
+                pathColor={isPath1 ? '#2d9a5f' : '#2a7fc4'}
+                pathColorBright={isPath1 ? '#52d68a' : '#60b4f5'}
+                index={0}
+                requiredPoints={nodePoints[hovNode.id]}
+                forceHover={true}
+                onHoverChange={handleNodeHover}
+              />
+            );
+          })()}
 
           {/* Layer 9: Vignette overlay */}
           <rect x="0" y="0" width={VW} height={VH}

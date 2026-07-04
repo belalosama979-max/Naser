@@ -7,8 +7,9 @@
 
 import React, { useState } from 'react';
 
-export default function MapNode({ node, pathColor, pathColorBright, index, requiredPoints }) {
+export default function MapNode({ node, pathColor, pathColorBright, index, requiredPoints, onHoverChange, forceHover }) {
   const [hovered, setHovered] = useState(false);
+  const isActive = forceHover || hovered;
   const isMain = node.type === 'main';
   const { x, y, name, subtitle, desc } = node;
 
@@ -21,14 +22,14 @@ export default function MapNode({ node, pathColor, pathColorBright, index, requi
     return (
       <g
         className="map-node-main"
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
+        onMouseEnter={() => { setHovered(true);  onHoverChange?.(node.id); }}
+        onMouseLeave={() => { setHovered(false); onHoverChange?.(null); }}
         style={{ cursor: 'default' }}
       >
         {/* Outer glow ring */}
-        <circle cx={x} cy={y} r={hovered ? 22 : 18}
+        <circle cx={x} cy={y} r={isActive ? 22 : 18}
           fill="none" stroke={pathColor} strokeWidth="1.5"
-          opacity={hovered ? 0.7 : 0.3}
+          opacity={isActive ? 0.7 : 0.3}
           style={{ transition: 'all 0.3s ease' }}
         />
 
@@ -37,12 +38,12 @@ export default function MapNode({ node, pathColor, pathColorBright, index, requi
           fill="rgba(0,0,0,0.5)" opacity="0.6" />
 
         {/* City/Fortress base plate */}
-        <circle cx={x} cy={y} r={hovered ? 16 : 14}
+        <circle cx={x} cy={y} r={isActive ? 16 : 14}
           fill={`rgba(${hexToRgb(pathColor)}, 0.2)`}
           stroke={pathColor} strokeWidth="1.5"
           style={{ transition: 'all 0.3s ease' }}
         />
-        <circle cx={x} cy={y} r={hovered ? 14 : 12}
+        <circle cx={x} cy={y} r={isActive ? 14 : 12}
           fill="rgba(18, 14, 5, 0.85)"
           stroke={pathColorBright} strokeWidth="0.8"
           opacity="0.8"
@@ -50,14 +51,14 @@ export default function MapNode({ node, pathColor, pathColorBright, index, requi
         />
 
         {/* Fortress icon — towers */}
-        <FortressIcon cx={x} cy={y} color={pathColorBright} size={hovered ? 10 : 8} />
+        <FortressIcon cx={x} cy={y} color={pathColorBright} size={isActive ? 10 : 8} />
 
         {/* City name label + points side by side */}
         <g style={{ transition: 'all 0.3s ease' }}>
           {/* Main name background */}
           <rect
             x={x - labelW / 2}
-            y={y + (hovered ? 20 : 17)}
+            y={y + (isActive ? 20 : 17)}
             width={labelW}
             height="16"
             rx="3"
@@ -68,11 +69,11 @@ export default function MapNode({ node, pathColor, pathColorBright, index, requi
           />
           <text
             x={x}
-            y={y + (hovered ? 31 : 28)}
+            y={y + (isActive ? 31 : 28)}
             textAnchor="middle"
-            fontSize={hovered ? '10.5' : '9.5'}
+            fontSize={isActive ? '10.5' : '9.5'}
             fontFamily="Reem Kufi, serif"
-            fill={hovered ? pathColorBright : '#c8b890'}
+            fill={isActive ? pathColorBright : '#c8b890'}
             fontWeight="600"
             style={{ transition: 'all 0.3s ease' }}
           >
@@ -84,7 +85,7 @@ export default function MapNode({ node, pathColor, pathColorBright, index, requi
             <g>
               <rect
                 x={x - 22}
-                y={y + (hovered ? 36 : 33)}
+                y={y + (isActive ? 36 : 33)}
                 width="44"
                 height="13"
                 rx="6"
@@ -94,7 +95,7 @@ export default function MapNode({ node, pathColor, pathColorBright, index, requi
               />
               <text
                 x={x}
-                y={y + (hovered ? 45 : 42)}
+                y={y + (isActive ? 45 : 42)}
                 textAnchor="middle"
                 fontSize="7.5"
                 fontFamily="Cairo, sans-serif"
@@ -108,7 +109,7 @@ export default function MapNode({ node, pathColor, pathColorBright, index, requi
         </g>
 
         {/* Hover tooltip — smart position stays inside viewBox */}
-        {hovered && (() => {
+        {isActive && (() => {
           const TW = 160;
           const TH = 82;
           // Clamp x so tooltip stays inside 0..1400
@@ -152,18 +153,18 @@ export default function MapNode({ node, pathColor, pathColorBright, index, requi
   return (
     <g
       className="map-node-sub"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={() => { setHovered(true);  onHoverChange?.(node.id); }}
+      onMouseLeave={() => { setHovered(false); onHoverChange?.(null); }}
     >
       {/* Outer ring */}
-      <circle cx={x} cy={y} r={hovered ? 9 : 7}
+      <circle cx={x} cy={y} r={isActive ? 9 : 7}
         fill="none" stroke={pathColor} strokeWidth="1"
-        opacity={hovered ? 0.6 : 0.22}
+        opacity={isActive ? 0.6 : 0.22}
         style={{ transition: 'all 0.2s ease' }}
       />
 
       {/* Inner dot */}
-      <circle cx={x} cy={y} r={hovered ? 5 : 4}
+      <circle cx={x} cy={y} r={isActive ? 5 : 4}
         fill="rgba(18, 14, 5, 0.75)"
         stroke={pathColor} strokeWidth="0.8"
         opacity="0.7"
@@ -181,7 +182,7 @@ export default function MapNode({ node, pathColor, pathColorBright, index, requi
           textAnchor="start"
           fontSize="7.5"
           fontFamily="Cairo, sans-serif"
-          fill={hovered ? '#e0d0a0' : '#b8a878'}
+          fill={isActive ? '#e0d0a0' : '#b8a878'}
           style={{ transition: 'color 0.2s ease' }}
         >
           {name}
@@ -203,7 +204,7 @@ export default function MapNode({ node, pathColor, pathColorBright, index, requi
       </g>
 
       {/* Hover tooltip (minimal) — smart clamp */}
-      {hovered && (() => {
+      {isActive && (() => {
         const TW = 120;
         const TH = pointsLabel ? 36 : 22;
         const tx = Math.min(Math.max(x - TW / 2, 8), 1400 - TW - 8);
