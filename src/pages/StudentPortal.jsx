@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
 import { getSession, clearSession } from '../lib/studentAuth';
 import { pathsData } from '../utils/pathsData';
+import ReadOnlyMapCanvas from '../components/map/ReadOnlyMapCanvas';
 
 // ── Motivational quotes ───────────────────────────────────────────────────────
 const QUOTES = [
@@ -80,14 +81,13 @@ function ProgressRing({ progress, size = 100, stroke = 8 }) {
   );
 }
 
-// -- Map Preview Modal (Full -- All Students) ---
+// ── Map Preview Modal — uses ReadOnlyMapCanvas (full game map, identical to GameView) ──
 function MapPreviewModal({ student, nodePoints, allStudents, onClose }) {
-  const [isLandscape, setIsLandscape] = useState(window.innerWidth > window.innerHeight);
   const currentNode = getCurrentNode(student, nodePoints);
+  const myRank = allStudents.findIndex(s => s.id === student.id) + 1;
 
+  // Try fullscreen for immersive map experience
   useEffect(() => {
-    const handler = () => setIsLandscape(window.innerWidth > window.innerHeight);
-    window.addEventListener('resize', handler);
     const reqFullscreen = async () => {
       try {
         if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
@@ -96,42 +96,12 @@ function MapPreviewModal({ student, nodePoints, allStudents, onClose }) {
     };
     reqFullscreen();
     return () => {
-      window.removeEventListener('resize', handler);
       try {
         if (document.fullscreenElement) document.exitFullscreen();
         if (window.screen?.orientation?.unlock) window.screen.orientation.unlock();
       } catch {}
     };
   }, []);
-
-  const VBW = 1400, VBH = 900;
-  const path1Nodes = pathsData.path1;
-  const path2Nodes = pathsData.path2;
-  const path1Points = path1Nodes.map(n => `${n.x},${n.y}`).join(' ');
-  const path2Points = path2Nodes.map(n => `${n.x},${n.y}`).join(' ');
-
-  const getStudentSVGPos = (s) => {
-    const nodes = pathsData[s.pathId] || [];
-    if (!nodes.length) return { x: 700, y: 820 };
-    if (s.progress <= nodes[0].progress) return { x: nodes[0].x, y: nodes[0].y };
-    if (s.progress >= nodes[nodes.length - 1].progress) {
-      const last = nodes[nodes.length - 1];
-      return { x: last.x, y: last.y };
-    }
-    let sn = nodes[0], en = nodes[1];
-    for (let i = 0; i < nodes.length - 1; i++) {
-      if (s.progress >= nodes[i].progress && s.progress <= nodes[i + 1].progress) {
-        sn = nodes[i]; en = nodes[i + 1]; break;
-      }
-    }
-    const segP = en.progress - sn.progress;
-    const curP = s.progress - sn.progress;
-    const ratio = segP === 0 ? 0 : curP / segP;
-    return { x: sn.x + (en.x - sn.x) * ratio, y: sn.y + (en.y - sn.y) * ratio };
-  };
-
-  const myPos = getStudentSVGPos(student);
-  const myRank = allStudents.findIndex(s => s.id === student.id) + 1;
 
   return (
     <motion.div
@@ -142,212 +112,106 @@ function MapPreviewModal({ student, nodePoints, allStudents, onClose }) {
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.85, opacity: 0 }}
+        initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.85, opacity: 0 }}
-        transition={{ duration: 0.35, ease: 'easeOut' }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
         onClick={e => e.stopPropagation()}
         style={{
           position: 'relative',
-          width: isLandscape ? '95vw' : '96vw',
-          maxWidth: isLandscape ? '1100px' : '600px',
-          background: 'rgba(10,6,2,0.97)',
-          border: '1px solid rgba(212,175,55,0.3)',
+          width: '96vw',
+          maxWidth: '1200px',
+          height: '90vh',
+          display: 'flex',
+          flexDirection: 'column',
+          background: '#090602',
+          border: '1px solid rgba(212,175,55,0.35)',
           borderRadius: '16px',
           overflow: 'hidden',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.8)',
+          boxShadow: '0 24px 80px rgba(0,0,0,0.85)',
         }}
       >
-        {/* Header */}
+        {/* ── Header ── */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '12px 16px',
-          background: 'rgba(6,4,1,0.95)',
+          padding: '10px 16px', flexShrink: 0,
+          background: 'rgba(6,4,1,0.97)',
           borderBottom: '1px solid rgba(212,175,55,0.15)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '16px' }}>🗺️</span>
-            <span style={{ color: '#d4af37', fontFamily: 'Reem Kufi, serif', fontSize: '14px', fontWeight: '700' }}>
+            <span style={{ fontSize: '18px' }}>🗺️</span>
+            <span style={{ color: '#d4af37', fontFamily: 'Reem Kufi, serif', fontSize: '15px', fontWeight: '800' }}>
               خريطة الرحلة الكاملة
             </span>
           </div>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <div style={{
-              background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.3)',
-              borderRadius: '20px', padding: '3px 12px',
-              color: '#d4af37', fontSize: '11px', fontWeight: '700',
-            }}>
-              📍 {currentNode?.name || 'البداية'}
-            </div>
-            <div style={{
-              background: 'rgba(82,214,138,0.1)', border: '1px solid rgba(82,214,138,0.3)',
-              borderRadius: '20px', padding: '3px 12px',
-              color: '#52d68a', fontSize: '11px', fontWeight: '700',
-            }}>
-              {student.progress.toFixed(0)}%
-            </div>
+            <MapStatChip icon="🏅" label="ترتيبي" value={`#${myRank}`} color="#d4af37" />
+            <MapStatChip icon="🎯" label="نقاطي" value={student.points} color="#60b4f5" />
+            <MapStatChip icon="📊" label="الإنجاز" value={`${student.progress.toFixed(0)}%`} color="#52d68a" />
+            <MapStatChip icon="📍" label="موقعي" value={currentNode?.name || 'البداية'} color="#f5c040" />
+            {student.hasJerusalemBadge && <MapStatChip icon="★" label="القدس" value="فاتح" color="#d4af37" />}
+
             <button
               onClick={onClose}
               style={{
-                background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)',
-                borderRadius: '8px', padding: '5px 10px',
-                color: '#ef4444', fontSize: '12px', cursor: 'pointer',
+                background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)',
+                borderRadius: '8px', padding: '5px 12px',
+                color: '#ef4444', fontSize: '13px', fontWeight: '700', cursor: 'pointer',
+                fontFamily: 'Cairo, sans-serif',
               }}
-            >X</button>
+            >
+              ✕ إغلاق
+            </button>
           </div>
         </div>
 
-        {/* Stats bar */}
-        <div style={{
-          display: 'flex', gap: '14px', padding: '8px 16px',
-          background: 'rgba(4,3,1,0.9)',
-          borderBottom: '1px solid rgba(212,175,55,0.08)',
-          flexWrap: 'wrap', alignItems: 'center',
-        }}>
-          <MapStatChip icon="🏅" label="ترتيبي" value={`#${myRank}`} color="#d4af37" />
-          <MapStatChip icon="🎯" label="نقاطي" value={student.points} color="#60b4f5" />
-          <MapStatChip icon="📊" label="الإنجاز" value={`${student.progress.toFixed(0)}%`} color="#52d68a" />
-          <MapStatChip icon="🏁" label="المتبقي" value={`${(100 - student.progress).toFixed(0)}%`} color="#f59e0b" />
-          <MapStatChip icon="👥" label="الطلاب" value={allStudents.length} color="#c8b890" />
-          {student.hasJerusalemBadge && <MapStatChip icon="★" label="فاتح القدس" value="نعم" color="#d4af37" />}
+        {/* ── Full Game Map — fills remaining space ── */}
+        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+          <ReadOnlyMapCanvas highlightStudentId={student.id} />
         </div>
 
-        {/* SVG Full Map */}
-        <div style={{ position: 'relative', overflow: 'auto', maxHeight: isLandscape ? '70vh' : '58vh' }}>
-          <svg
-            viewBox={`0 0 ${VBW} ${VBH}`}
-            style={{ width: '100%', display: 'block', background: 'linear-gradient(135deg, #1e1508 0%, #0f0b04 100%)' }}
-          >
-            {/* Both path lines */}
-            <polyline points={path1Points} fill="none"
-              stroke="rgba(45,154,95,0.4)" strokeWidth="3" strokeDasharray="8 4" />
-            <polyline points={path2Points} fill="none"
-              stroke="rgba(42,127,196,0.4)" strokeWidth="3" strokeDasharray="8 4" />
-
-            {/* Path 1 nodes */}
-            {path1Nodes.map((node) => {
-              if (node.id === 'dest') return null;
-              const isMain = node.type === 'main';
-              return (
-                <g key={node.id}>
-                  <circle cx={node.x} cy={node.y} r={isMain ? 6 : 3.5}
-                    fill="rgba(45,154,95,0.18)" stroke="rgba(45,154,95,0.55)" strokeWidth="1" />
-                  {isMain && (
-                    <text x={node.x + 9} y={node.y + 4} fontSize="8"
-                      fontFamily="Reem Kufi, serif" fill="rgba(82,214,138,0.75)">{node.name}</text>
-                  )}
-                </g>
-              );
-            })}
-
-            {/* Path 2 nodes */}
-            {path2Nodes.map((node) => {
-              if (node.id === 'dest') return null;
-              const isMain = node.type === 'main';
-              return (
-                <g key={node.id}>
-                  <circle cx={node.x} cy={node.y} r={isMain ? 6 : 3.5}
-                    fill="rgba(42,127,196,0.18)" stroke="rgba(42,127,196,0.55)" strokeWidth="1" />
-                  {isMain && (
-                    <text x={node.x - 9} y={node.y + 4} fontSize="8"
-                      fontFamily="Reem Kufi, serif" fill="rgba(96,180,245,0.75)" textAnchor="end">{node.name}</text>
-                  )}
-                </g>
-              );
-            })}
-
-            {/* Jerusalem */}
-            <circle cx={700} cy={820} r={20} fill="rgba(212,175,55,0.12)" stroke="#d4af37" strokeWidth="1.5" />
-            <circle cx={700} cy={820} r={11} fill={student.hasJerusalemBadge ? '#d4af37' : 'rgba(50,35,10,0.9)'} />
-            <text x={700} y={793} textAnchor="middle" fontSize="13"
-              fontFamily="Reem Kufi, serif" fill="#d4af37" fontWeight="700">القدس</text>
-
-            {/* Other students - small dots */}
-            {allStudents
-              .filter(s => s.id !== student.id)
-              .map(s => {
-                const pos = getStudentSVGPos(s);
-                const col = s.hasJerusalemBadge ? '#d4af37' : (s.pathId === 'path1' ? '#2d9a5f' : '#2a7fc4');
-                return (
-                  <g key={s.id}>
-                    <circle cx={pos.x} cy={pos.y} r={5}
-                      fill={col} stroke="rgba(255,255,255,0.25)" strokeWidth="0.7" opacity="0.75" />
-                    <text x={pos.x} y={pos.y - 8} textAnchor="middle" fontSize="6.5"
-                      fontFamily="Cairo, sans-serif" fill="rgba(200,180,120,0.75)">
-                      {s.name.split(' ')[0].substring(0, 5)}
-                    </text>
-                  </g>
-                );
-              })
-            }
-
-            {/* MY position - animated golden halo */}
-            <g>
-              <motion.circle cx={myPos.x} cy={myPos.y} r={18}
-                fill="none" stroke="#d4af37" strokeWidth="1.5"
-                animate={{ r: [16, 28], opacity: [0.8, 0] }}
-                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut' }}
-              />
-              <motion.circle cx={myPos.x} cy={myPos.y} r={13}
-                fill="none" stroke="#f5d060" strokeWidth="1"
-                animate={{ r: [11, 21], opacity: [0.6, 0] }}
-                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut', delay: 0.5 }}
-              />
-              <circle cx={myPos.x} cy={myPos.y} r={10}
-                fill="rgba(212,175,55,0.3)" stroke="#d4af37" strokeWidth="2.5" />
-              <circle cx={myPos.x} cy={myPos.y} r={6} fill="#d4af37" />
-              <text x={myPos.x} y={myPos.y + 4} textAnchor="middle" fontSize="7"
-                fill="#0d0a02" fontWeight="900">انا</text>
-              <rect x={myPos.x - 30} y={myPos.y + 13} width="60" height="14" rx="4"
-                fill="rgba(212,175,55,0.2)" stroke="#d4af37" strokeWidth="0.8" />
-              <text x={myPos.x} y={myPos.y + 22} textAnchor="middle" fontSize="8"
-                fontFamily="Cairo, sans-serif" fill="#f5d060" fontWeight="700">
-                {student.name.split(' ')[0]} - انت هنا
-              </text>
-            </g>
-          </svg>
-        </div>
-
-        {/* Legend */}
+        {/* ── Footer hint ── */}
         <div style={{
-          display: 'flex', gap: '12px', padding: '8px 16px',
-          background: 'rgba(4,3,1,0.9)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '6px 16px', flexShrink: 0,
+          background: 'rgba(4,3,1,0.97)',
           borderTop: '1px solid rgba(212,175,55,0.08)',
-          flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between',
+          gap: '12px', flexWrap: 'wrap',
         }}>
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <div style={{ width: '20px', height: '3px', background: '#2d9a5f', borderRadius: '2px' }} />
-              <span style={{ color: '#5a4a30', fontSize: '9px', fontFamily: 'Cairo, sans-serif' }}>المسار العراقي</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <div style={{ width: '20px', height: '3px', background: '#2a7fc4', borderRadius: '2px' }} />
-              <span style={{ color: '#5a4a30', fontSize: '9px', fontFamily: 'Cairo, sans-serif' }}>المسار الشامي</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#d4af37', border: '1.5px solid #d4af37' }} />
-              <span style={{ color: '#5a4a30', fontSize: '9px', fontFamily: 'Cairo, sans-serif' }}>انت</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'rgba(82,214,138,0.7)' }} />
-              <span style={{ color: '#5a4a30', fontSize: '9px', fontFamily: 'Cairo, sans-serif' }}>طلاب آخرون</span>
-            </div>
+          <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <LegendItem color="#52d68a" label="المسار العراقي" />
+            <LegendItem color="#60b4f5" label="المسار الشامي" />
+            <LegendItem color="#d4af37" label="موقعك (هالة ذهبية)" isCircle />
+            <LegendItem color="rgba(200,180,120,0.7)" label="طلاب آخرون" isCircle />
           </div>
-          <p style={{ color: '#3a2a10', fontSize: '10px', fontFamily: 'Cairo, sans-serif' }}>
-            اضغط خارج الخريطة للإغلاق
-          </p>
+          <span style={{ color: '#3a2a10', fontSize: '10px', fontFamily: 'Cairo, sans-serif' }}>
+            سحب للتنقل • عجلة الماوس للتكبير
+          </span>
         </div>
       </motion.div>
     </motion.div>
   );
 }
 
-function MapStatChip({ icon, label, value, color }) {
+function LegendItem({ color, label, isCircle }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+      {isCircle
+        ? <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: color, flexShrink: 0 }} />
+        : <div style={{ width: '18px', height: '3px', background: color, borderRadius: '2px', flexShrink: 0 }} />
+      }
+      <span style={{ color: '#5a4a30', fontSize: '9px', fontFamily: 'Cairo, sans-serif' }}>{label}</span>
+    </div>
+  );
+}
+
+function MapStatChip({ icon, label, value, color }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
       <span style={{ fontSize: '11px' }}>{icon}</span>
       <span style={{ color: '#4a3a20', fontSize: '9px', fontFamily: 'Cairo, sans-serif' }}>{label}:</span>
-      <span style={{ color: color || '#d4af37', fontSize: '12px', fontWeight: '700', fontFamily: 'Reem Kufi, serif' }}>{value}</span>
+      <span style={{ color: color || '#d4af37', fontSize: '11px', fontWeight: '700', fontFamily: 'Reem Kufi, serif' }}>{value}</span>
     </div>
   );
 }

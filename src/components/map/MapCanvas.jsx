@@ -12,7 +12,7 @@ import { buildSmoothSVGPath } from '../../utils/positionCalculator';
 import { useGameStore } from '../../store/gameStore';
 import MapNode from './MapNode';
 import JerusalemMarker from './JerusalemMarker';
-import StudentAvatar from '../student/StudentAvatar';
+import StudentAvatar, { StudentTooltip } from '../student/StudentAvatar';
 
 const { width: VW, height: VH } = MAP_VIEWBOX;
 
@@ -313,16 +313,20 @@ export default function MapCanvas() {
   const dragStart = useRef(null);
   const isDraggingRef = useRef(false);
   const [hoveredNodeId, setHoveredNodeId] = useState(null);
-  const [hoveredStudentId, setHoveredStudentId] = useState(null);
+  // hoveredStudent: { id, x, y } — absolute SVG coords for tooltip placement
+  const [hoveredStudent, setHoveredStudent] = useState(null);
 
-  // Stable callback — does not cause full re-render of all nodes
   const handleNodeHover = useCallback((id) => {
     setHoveredNodeId(id);
   }, []);
 
-  // Stable callback for student avatar hover (elevation via re-render at end)
-  const handleStudentHover = useCallback((id) => {
-    setHoveredStudentId(id);
+  // Avatar calls this with (id, svgX, svgY) on enter, (null,0,0) on leave
+  const handleStudentHover = useCallback((id, svgX, svgY) => {
+    if (id === null) {
+      setHoveredStudent(null);
+    } else {
+      setHoveredStudent({ id, x: svgX, y: svgY });
+    }
   }, []);
 
   const applyTransform = useCallback((smooth = false) => {
@@ -501,23 +505,19 @@ export default function MapCanvas() {
           {/* Layer 7: Jerusalem (always on top of nodes) */}
           <JerusalemMarker x={700} y={820} />
 
-          {/* Layer 8: Student avatars — non-hovered ones first */}
-          {students
-            .filter(s => s.id !== hoveredStudentId)
-            .map((student) => (
-              <StudentAvatar
-                key={student.id}
-                student={student}
-                allStudents={students}
-                isDragging={isDragging}
-                onHoverChange={handleStudentHover}
-              />
-            ))
-          }
+          {/* Layer 8: ALL student avatars — rendered in stable order, no re-render on hover */}
+          {students.map((student) => (
+            <StudentAvatar
+              key={student.id}
+              student={student}
+              allStudents={students}
+              isDragging={isDragging}
+              onHoverChange={handleStudentHover}
+            />
+          ))}
 
-          {/* Layer 9a (TOP): Re-render hovered node last so tooltip is above everything */}
+          {/* Layer 9a (TOP): Hovered node re-render for tooltip elevation */}
           {hoveredNodeId && (() => {
-            // Find the hovered node in either path
             const allPathNodes = [...pathsData.path1, ...pathsData.path2.filter(n => n.id !== 'dest')];
             const hovNode = allPathNodes.find(n => n.id === hoveredNodeId);
             if (!hovNode) return null;
@@ -536,18 +536,18 @@ export default function MapCanvas() {
             );
           })()}
 
-          {/* Layer 9b (TOP): Re-render hovered student LAST for z-elevation */}
-          {hoveredStudentId && (() => {
-            const hovStudent = students.find(s => s.id === hoveredStudentId);
-            if (!hovStudent) return null;
+          {/* Layer 9b (TOP): Student tooltip — separate from avatar, no jump */}
+          {hoveredStudent && (() => {
+            const hs = students.find(s => s.id === hoveredStudent.id);
+            if (!hs) return null;
             return (
-              <StudentAvatar
-                key={`hov-student-${hoveredStudentId}`}
-                student={hovStudent}
-                allStudents={students}
-                isDragging={isDragging}
-                onHoverChange={handleStudentHover}
-                forceHover={true}
+              <StudentTooltip
+                key={`tooltip-${hoveredStudent.id}`}
+                student={hs}
+                svgX={hoveredStudent.x}
+                svgY={hoveredStudent.y}
+                onMouseEnter={() => setHoveredStudent(prev => prev)}
+                onMouseLeave={() => setHoveredStudent(null)}
               />
             );
           })()}
