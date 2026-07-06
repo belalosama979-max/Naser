@@ -79,7 +79,7 @@ export default function ProgressPanel() {
     // Log the operation
     const op = {
       id: Date.now(),
-      studentName: selectedStudent?.name?.split(' ')[0] || '—',
+      studentName: selectedStudent?.name || '—',
       cardType: selectedCard,
       points: delta,
       time: new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }),
@@ -155,7 +155,7 @@ export default function ProgressPanel() {
             <option value="">— اختر الطالب —</option>
             {sortedStudents.map(s => (
               <option key={s.id} value={s.id}>
-                #{s.currentRank} {s.name.split(' ')[0]} ({s.points} نقطة)
+                #{s.currentRank} {s.name} ({s.points} نقطة)
               </option>
             ))}
           </select>

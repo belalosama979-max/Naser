@@ -251,7 +251,7 @@ function PlayerCard({ student, pathColor, targetPoints, rank }) {
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               maxWidth: '80px',
             }}>
-              {student.name.split(' ')[0]}
+              {student.name}
             </span>
             <span style={{
               fontSize: '10px', fontWeight: '800',

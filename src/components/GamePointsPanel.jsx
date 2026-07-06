@@ -98,7 +98,7 @@ export default function GamePointsPanel({ onClose }) {
                   color: isSelected ? '#fff' : '#a89880',
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%',
                 }}>
-                  {s.name.split(' ')[0]}
+                  {s.name}
                 </span>
                 <span style={{ fontSize: '9px', color: pathColor.bright, fontFamily: 'Cairo, sans-serif' }}>
                   {s.points} ن
