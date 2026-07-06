@@ -9,10 +9,13 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import { pathsData } from '../utils/pathsData';
 import { db } from '../lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 
 // ─── Custom Firebase Storage Adapter ──────────────────────────
 const DB_DOC_REF = doc(db, 'gameData', 'mainStore');
+
+let isSyncing = false;
+export let currentTimestamp = Date.now();
 
 const firebaseStorage = {
   getItem: async (name) => {
@@ -30,47 +33,54 @@ const firebaseStorage = {
     }
 
     if (!firebaseDataStr && !localDataStr) return null;
-    if (firebaseDataStr && !localDataStr) {
+
+    let fbTime = 0;
+    let localTime = 0;
+    let parsedFb = null;
+    let parsedLocal = null;
+
+    if (firebaseDataStr) {
+       try { parsedFb = JSON.parse(firebaseDataStr); fbTime = parsedFb._timestamp || 0; } catch(e){}
+    }
+    if (localDataStr) {
+       try { parsedLocal = JSON.parse(localDataStr); localTime = parsedLocal._timestamp || 0; } catch(e){}
+    }
+
+    // Determine the newest data
+    if (fbTime > localTime) {
+      currentTimestamp = fbTime;
       localStorage.setItem(name, firebaseDataStr);
       return firebaseDataStr;
-    }
-    if (!firebaseDataStr && localDataStr) {
-      try { setDoc(DB_DOC_REF, JSON.parse(localDataStr)); } catch(e){}
+    } else if (localTime > fbTime) {
+      currentTimestamp = localTime;
+      if (parsedLocal) setDoc(DB_DOC_REF, parsedLocal).catch(() => {});
       return localDataStr;
     }
 
-    // Both exist, compare timestamps
-    try {
-      const parsedLocal = JSON.parse(localDataStr);
-      const parsedFb = JSON.parse(firebaseDataStr);
-      
-      const localTime = parsedLocal._timestamp || 0;
-      const fbTime = parsedFb._timestamp || 0;
-
-      if (localTime > fbTime) {
-        // Local is newer (pending write was aborted)
-        setDoc(DB_DOC_REF, parsedLocal).catch(() => {});
-        return localDataStr;
-      } else {
-        // Firebase is newer or equal
-        localStorage.setItem(name, firebaseDataStr);
-        return firebaseDataStr;
-      }
-    } catch (e) {
-      return localDataStr || firebaseDataStr;
-    }
+    // Equal timestamps or parsing failed
+    return localDataStr || firebaseDataStr;
   },
   setItem: async (name, value) => {
     try {
-      // Inject timestamp into value before saving
       const parsed = JSON.parse(value);
-      parsed._timestamp = Date.now();
+
+      if (isSyncing) {
+        // Triggered by onSnapshot: only save locally, avoid infinite loop
+        parsed._timestamp = currentTimestamp;
+        localStorage.setItem(name, JSON.stringify(parsed));
+        isSyncing = false;
+        return;
+      }
+
+      // Normal UI update
+      currentTimestamp = Date.now();
+      parsed._timestamp = currentTimestamp;
       const newValue = JSON.stringify(parsed);
       
       // Save locally INSTANTLY
       localStorage.setItem(name, newValue);
       
-      // Fire and forget to Firebase (don't await, avoids blocking)
+      // Fire and forget to Firebase
       setDoc(DB_DOC_REF, parsed).catch(e => console.error("Firebase write error:", e));
     } catch (e) {
       console.error("Storage error:", e);
@@ -79,6 +89,11 @@ const firebaseStorage = {
   removeItem: async (name) => {
     localStorage.removeItem(name);
   }
+};
+
+// Function to set isSyncing flag from outside
+export const setSyncing = (state) => {
+  isSyncing = state;
 };
 
 // ─── Initial State ────────────────────────────────────────────
@@ -523,3 +538,22 @@ export const useGameStore = create(
     }
   )
 );
+
+// ─── Real-time Multiplayer Sync ───────────────────────────────
+onSnapshot(DB_DOC_REF, (docSnap) => {
+  if (docSnap.exists()) {
+    const data = docSnap.data();
+    const fbTime = data._timestamp || 0;
+    
+    // If Firebase has newer state, apply it to the Zustand store
+    if (fbTime > currentTimestamp) {
+      setSyncing(true);
+      currentTimestamp = fbTime;
+      if (data.state) {
+        useGameStore.setState(data.state);
+      } else {
+        setSyncing(false); // Reset if data.state doesn't exist to prevent getting stuck
+      }
+    }
+  }
+});
