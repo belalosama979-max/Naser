@@ -17,6 +17,26 @@ const DB_DOC_REF = doc(db, 'gameData', 'mainStore');
 let isSyncing = false;
 export let currentTimestamp = Date.now();
 
+const CHUNK_SIZE = 800000;
+
+const saveToFirebase = async (parsedObj, jsonString) => {
+  const numChunks = Math.ceil(jsonString.length / CHUNK_SIZE);
+  if (numChunks === 1 && jsonString.length < CHUNK_SIZE) {
+    await setDoc(DB_DOC_REF, parsedObj);
+  } else {
+    const chunkPromises = [];
+    for (let i = 0; i < numChunks; i++) {
+      const chunkData = jsonString.substring(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+      chunkPromises.push(setDoc(doc(db, 'gameData', `mainStore_chunk_${i}`), { data: chunkData }));
+    }
+    await Promise.all(chunkPromises);
+    await setDoc(DB_DOC_REF, {
+      _timestamp: parsedObj._timestamp,
+      chunks: numChunks
+    });
+  }
+};
+
 const firebaseStorage = {
   getItem: async (name) => {
     const localDataStr = localStorage.getItem(name);
@@ -25,7 +45,17 @@ const firebaseStorage = {
     try {
       const docSnap = await getDoc(DB_DOC_REF);
       if (docSnap.exists()) {
-        firebaseDataStr = JSON.stringify(docSnap.data());
+        const meta = docSnap.data();
+        if (meta.state) {
+          firebaseDataStr = JSON.stringify(meta);
+        } else if (meta.chunks) {
+          let fullStr = '';
+          for (let i = 0; i < meta.chunks; i++) {
+            const chunkSnap = await getDoc(doc(db, 'gameData', `mainStore_chunk_${i}`));
+            if (chunkSnap.exists()) fullStr += chunkSnap.data().data;
+          }
+          firebaseDataStr = fullStr;
+        }
       }
     } catch (e) {
       console.error("Firebase read error:", e);
@@ -53,7 +83,7 @@ const firebaseStorage = {
       return firebaseDataStr;
     } else if (localTime > fbTime) {
       currentTimestamp = localTime;
-      if (parsedLocal) setDoc(DB_DOC_REF, parsedLocal).catch(() => {});
+      if (parsedLocal) saveToFirebase(parsedLocal, localDataStr).catch(() => {});
       return localDataStr;
     }
 
@@ -80,8 +110,8 @@ const firebaseStorage = {
       // Save locally INSTANTLY
       localStorage.setItem(name, newValue);
       
-      // Fire and forget to Firebase
-      setDoc(DB_DOC_REF, parsed).catch(e => console.error("Firebase write error:", e));
+      // Fire and forget to Firebase (chunked to bypass 1MB limit)
+      saveToFirebase(parsed, newValue).catch(e => console.error("Firebase chunk write error:", e));
     } catch (e) {
       console.error("Storage error:", e);
     }
@@ -540,17 +570,35 @@ export const useGameStore = create(
 );
 
 // ─── Real-time Multiplayer Sync ───────────────────────────────
-onSnapshot(DB_DOC_REF, (docSnap) => {
+onSnapshot(DB_DOC_REF, async (docSnap) => {
   if (docSnap.exists()) {
-    const data = docSnap.data();
-    const fbTime = data._timestamp || 0;
+    const meta = docSnap.data();
+    const fbTime = meta._timestamp || 0;
     
     // If Firebase has newer state, apply it to the Zustand store
     if (fbTime > currentTimestamp) {
       setSyncing(true);
       currentTimestamp = fbTime;
-      if (data.state) {
-        useGameStore.setState(data.state);
+      
+      let dataToSet = null;
+      if (meta.state) {
+        dataToSet = meta.state;
+      } else if (meta.chunks) {
+        let fullStr = '';
+        for (let i = 0; i < meta.chunks; i++) {
+          const chunkSnap = await getDoc(doc(db, 'gameData', `mainStore_chunk_${i}`));
+          if (chunkSnap.exists()) fullStr += chunkSnap.data().data;
+        }
+        try {
+          const parsed = JSON.parse(fullStr);
+          dataToSet = parsed.state;
+        } catch(e) {
+          console.error("Chunk parse error", e);
+        }
+      }
+      
+      if (dataToSet) {
+        useGameStore.setState(dataToSet);
       } else {
         setSyncing(false); // Reset if data.state doesn't exist to prevent getting stuck
       }
