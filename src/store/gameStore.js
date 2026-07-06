@@ -16,27 +16,68 @@ const DB_DOC_REF = doc(db, 'gameData', 'mainStore');
 
 const firebaseStorage = {
   getItem: async (name) => {
+    const localDataStr = localStorage.getItem(name);
+    let firebaseDataStr = null;
+
     try {
       const docSnap = await getDoc(DB_DOC_REF);
       if (docSnap.exists()) {
-        return JSON.stringify(docSnap.data());
+        firebaseDataStr = JSON.stringify(docSnap.data());
       }
-      return null; // fall back to INITIAL_STATE
     } catch (e) {
       console.error("Firebase read error:", e);
-      return null;
+      return localDataStr; // Fallback to local on error
+    }
+
+    if (!firebaseDataStr && !localDataStr) return null;
+    if (firebaseDataStr && !localDataStr) {
+      localStorage.setItem(name, firebaseDataStr);
+      return firebaseDataStr;
+    }
+    if (!firebaseDataStr && localDataStr) {
+      try { setDoc(DB_DOC_REF, JSON.parse(localDataStr)); } catch(e){}
+      return localDataStr;
+    }
+
+    // Both exist, compare timestamps
+    try {
+      const parsedLocal = JSON.parse(localDataStr);
+      const parsedFb = JSON.parse(firebaseDataStr);
+      
+      const localTime = parsedLocal._timestamp || 0;
+      const fbTime = parsedFb._timestamp || 0;
+
+      if (localTime > fbTime) {
+        // Local is newer (pending write was aborted)
+        setDoc(DB_DOC_REF, parsedLocal).catch(() => {});
+        return localDataStr;
+      } else {
+        // Firebase is newer or equal
+        localStorage.setItem(name, firebaseDataStr);
+        return firebaseDataStr;
+      }
+    } catch (e) {
+      return localDataStr || firebaseDataStr;
     }
   },
   setItem: async (name, value) => {
     try {
+      // Inject timestamp into value before saving
       const parsed = JSON.parse(value);
-      await setDoc(DB_DOC_REF, parsed);
+      parsed._timestamp = Date.now();
+      const newValue = JSON.stringify(parsed);
+      
+      // Save locally INSTANTLY
+      localStorage.setItem(name, newValue);
+      
+      // Fire and forget to Firebase (don't await, avoids blocking)
+      setDoc(DB_DOC_REF, parsed).catch(e => console.error("Firebase write error:", e));
     } catch (e) {
-      console.error("Firebase write error:", e);
+      console.error("Storage error:", e);
     }
   },
   removeItem: async (name) => {
-    // Optional implementation
+    localStorage.removeItem(name);
   }
 };
 
