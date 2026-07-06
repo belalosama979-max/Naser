@@ -93,24 +93,22 @@ export default function StudentProfile() {
   const handleAvatarChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      setAvatarMsg({ type: 'error', text: 'حجم الصورة يجب أن يكون أقل من 2 MB' });
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarMsg({ type: 'error', text: 'حجم الصورة يجب أن يكون أقل من 5 MB' });
       return;
     }
     setAvatarLoading(true);
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const dataUrl = ev.target.result;
-      try {
-        await updateStudent(studentId, { avatar: dataUrl });
-        setAvatarMsg({ type: 'success', text: '✅ تم تحديث الصورة بنجاح' });
-      } catch {
-        setAvatarMsg({ type: 'error', text: 'فشل الحفظ' });
-      }
-      setAvatarLoading(false);
-      setTimeout(() => setAvatarMsg({ type: '', text: '' }), 3000);
-    };
-    reader.readAsDataURL(file);
+    try {
+      const { compressImage } = await import('../utils/imageCompressor');
+      const dataUrl = await compressImage(file, 200, 200, 0.7);
+      await updateStudent(studentId, { avatar: dataUrl });
+      setAvatarMsg({ type: 'success', text: '✅ تم تحديث الصورة بنجاح' });
+    } catch (err) {
+      console.error("Image processing error:", err);
+      setAvatarMsg({ type: 'error', text: 'فشل الحفظ أو معالجة الصورة' });
+    }
+    setAvatarLoading(false);
+    setTimeout(() => setAvatarMsg({ type: '', text: '' }), 3000);
   };
 
   const handleRemoveAvatar = async () => {

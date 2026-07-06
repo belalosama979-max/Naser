@@ -35,15 +35,20 @@ function AvatarUploader({ currentAvatar, onUpload, studentName = '' }) {
   const fileRef = useRef(null);
   const [dragging, setDragging] = useState(false);
 
-  const processFile = (file) => {
+  const processFile = async (file) => {
     if (!file || !file.type.startsWith('image/')) return;
     if (file.size > 5 * 1024 * 1024) {
       alert('حجم الصورة يجب أن يكون أقل من 5 ميغابايت');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (e) => onUpload(e.target.result);
-    reader.readAsDataURL(file);
+    try {
+      const { compressImage } = await import('../utils/imageCompressor');
+      const compressedDataUrl = await compressImage(file, 200, 200, 0.7);
+      onUpload(compressedDataUrl);
+    } catch (e) {
+      console.error("Image compression failed", e);
+      alert('حدث خطأ أثناء معالجة الصورة');
+    }
   };
 
   return (
